@@ -3,7 +3,9 @@ from datetime import date, datetime, timedelta
 
 from app.services.util import (
     generate_unique_id,
-    guest_not_found_error
+    guest_not_found_error,
+    room_not_available_error,
+    reservation_not_found_error
 )
 
 @dataclass
@@ -46,3 +48,55 @@ class Reservation:
                 f"Guest: {self.guest_name}\n"
                 f"Description: {self.description}\n"
                 f"Dates: {self.check_in} - {self.check_out}")
+
+
+class Room:
+    def __init__(self, number: int, type_: str, price_per_night: float):
+        self.number = number
+        self.type_ = type_
+        self.price_per_night = price_per_night
+        self.availability: dict[date, str | None] = {}
+        self._init_availability()
+
+    def _init_availability(self):
+        today = datetime.now().date()
+        for i in range(365):
+            current_date = today + timedelta(days=i)
+            self.availability[current_date] = None
+
+    def book(self, reservation_id: str, check_in: date, check_out: date):
+        current = check_in
+        dates_to_book = []
+
+        while current < check_out:
+            if self.availability.get(current) is not None:
+                room_not_available_error()
+                return
+            dates_to_book.append(current)
+            current += timedelta(days=1)
+
+
+        for d in dates_to_book:
+            self.availability[d] = reservation_id
+
+
+    def release(self, reservation_id: str):
+        released = False
+        for d, saved_id in self.availability.items():
+            if saved_id == reservation_id:
+                self.availability[d] = None
+                released = True
+        if not released:
+            reservation_not_found_error()
+
+    def update_booking(self, reservation_id: str, check_in: date, check_out: date):
+        for d in self.availability:
+            if self.availability[d] == reservation_id:
+                self.availability[d] = None
+        current = check_in
+        while current < check_out:
+            if self.availability.get(current) is not None:
+                room_not_available_error()
+            else:
+                self.availability[current] = reservation_id
+            current += timedelta(days=1)
